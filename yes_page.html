@@ -1,21 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anh biết rằng em sẽ đồng ý mà 💖</title>
-    <link rel="stylesheet" href="./yes_style.css">
-</head>
-<body>
-    <div class="container">
-        <h1 class="header_text">Anh biết rằng em sẽ đồng ý mà 💖</h1>
-        <div class="gif_container">
-            <img src="like.jpg" alt="Ảnh của em 💖" style="max-width:320px;">
-        </div>
-    </div>
-
-    <!-- Hiệu ứng trái tim -->
-    <style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Anh biết rằng em sẽ đồng ý mà 💖</title>
+  <link rel="stylesheet" href="./yes_style.css">
+  <style>
+    /* ===== Tim rơi (emoji) ===== */
     .heart {
       position: fixed;
       top: -10px;
@@ -23,6 +14,8 @@
       font-size: 24px;
       animation: fall 4s linear forwards;
       z-index: 9999;
+      pointer-events: none;
+      user-select: none;
     }
     @keyframes fall {
       to {
@@ -30,20 +23,216 @@
         opacity: 0;
       }
     }
-    </style>
 
-    <script>
+    /* ===== Nút hiện hiệu ứng canvas ===== */
+    .show-btn{
+      position: fixed;
+      z-index: 10001;
+      right: 16px;
+      bottom: 16px;
+      padding: 10px 14px;
+      border: 0;
+      border-radius: 12px;
+      background: #ff4d6d;
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(0,0,0,.15);
+    }
+    .show-btn:active{ transform: translateY(1px); }
+
+    /* ===== Canvas hiệu ứng trái tim hạt ===== */
+    #heartCanvas{
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,.2);
+      display: none;          /* Ẩn cho đến khi bấm nút */
+      z-index: 10000;
+      pointer-events: none;   /* Không chặn click nội dung dưới */
+    }
+  </style>
+</head>
+<body>
+  <!-- Nội dung chính -->
+  <div class="container">
+    <h1 class="header_text">Anh biết rằng em sẽ đồng ý mà 💖</h1>
+    <div class="gif_container">
+      <img src="like.jpg" alt="Ảnh của em 💖" style="max-width:320px;">
+    </div>
+  </div>
+
+  <!-- Nút hiện hiệu ứng canvas -->
+  <button id="showHeart" class="show-btn">Em bấm vào đây</button>
+
+  <!-- Canvas hiệu ứng hạt trái tim -->
+  <canvas id="heartCanvas"></canvas>
+
+  <script>
+    /* =========================
+       1) Hiệu ứng tim rơi (emoji)
+       ========================= */
     function createHeart() {
       const heart = document.createElement("div");
       heart.className = "heart";
       heart.textContent = "💖";
       heart.style.left = Math.random() * 100 + "vw";
-      heart.style.fontSize = Math.random() * 20 + 20 + "px";
+      heart.style.fontSize = (Math.random() * 20 + 20) + "px";
       document.body.appendChild(heart);
       setTimeout(() => heart.remove(), 4000);
     }
     setInterval(createHeart, 500);
-    </script>
 
+    /* =========================
+       2) Hiệu ứng canvas trái tim hạt
+       ========================= */
+    window.requestAnimationFrame =
+      window.__requestAnimationFrame ||
+      window.requestAnimationFrame ||
+      window.webkitRequestAnimationFrame ||
+      window.mozRequestAnimationFrame ||
+      window.oRequestAnimationFrame ||
+      window.msRequestAnimationFrame ||
+      (function () {
+        return function (callback, element) {
+          var lastTime = element && element.__lastTime;
+          if (lastTime === undefined) lastTime = 0;
+          var currTime = Date.now();
+          var timeToCall = Math.max(1, 33 - (currTime - lastTime));
+          window.setTimeout(callback, timeToCall);
+          if (element) element.__lastTime = currTime + timeToCall;
+        };
+      })();
+
+    const isDevice = (/android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i
+                     .test(((navigator.userAgent || navigator.vendor || window.opera)).toLowerCase()));
+
+    let inited = false, running = false;
+
+    function startHeartCanvas() {
+      if (inited) return;
+      inited = true;
+
+      const mobile = isDevice;
+      const koef = mobile ? 0.5 : 1;
+      const canvas = document.getElementById('heartCanvas');
+      const ctx = canvas.getContext('2d');
+      let width = canvas.width = koef * innerWidth;
+      let height = canvas.height = koef * innerHeight;
+      const rand = Math.random;
+
+      ctx.fillStyle = "rgba(0,0,0,1)";
+      ctx.fillRect(0, 0, width, height);
+
+      const heartPosition = (rad) => [
+        Math.pow(Math.sin(rad), 3),
+        -(15 * Math.cos(rad) - 5 * Math.cos(2 * rad) - 2 * Math.cos(3 * rad) - Math.cos(4 * rad))
+      ];
+      const scaleAndTranslate = (pos, sx, sy, dx, dy) => [
+        dx + pos[0] * sx, dy + pos[1] * sy
+      ];
+
+      window.addEventListener('resize', () => {
+        width = canvas.width = koef * innerWidth;
+        height = canvas.height = koef * innerHeight;
+        ctx.fillStyle = "rgba(0,0,0,1)";
+        ctx.fillRect(0, 0, width, height);
+      });
+
+      const traceCount = mobile ? 20 : 50;
+      const pointsOrigin = [];
+      const dr = mobile ? 0.3 : 0.1;
+      for (let i = 0; i < Math.PI * 2; i += dr)
+        pointsOrigin.push(scaleAndTranslate(heartPosition(i), 210, 13, 0, 0));
+      for (let i = 0; i < Math.PI * 2; i += dr)
+        pointsOrigin.push(scaleAndTranslate(heartPosition(i), 150, 9, 0, 0));
+      for (let i = 0; i < Math.PI * 2; i += dr)
+        pointsOrigin.push(scaleAndTranslate(heartPosition(i), 90, 5, 0, 0));
+
+      const heartPointsCount = pointsOrigin.length;
+      const targetPoints = [];
+      const pulse = (kx, ky) => {
+        for (let i = 0; i < pointsOrigin.length; i++) {
+          targetPoints[i] = [];
+          targetPoints[i][0] = kx * pointsOrigin[i][0] + width / 2;
+          targetPoints[i][1] = ky * pointsOrigin[i][1] + height / 2;
+        }
+      };
+
+      const e = [];
+      for (let i = 0; i < heartPointsCount; i++) {
+        const x = rand() * width;
+        const y = rand() * height;
+        e[i] = {
+          vx: 0, vy: 0,
+          speed: rand() + 5,
+          q: ~~(rand() * heartPointsCount),
+          D: 2 * (i % 2) - 1,
+          force: 0.2 * rand() + 0.7,
+          f: "hsla(0," + ~~(40 * rand() + 60) + "%," + ~~(60 * rand() + 20) + "%,.3)",
+          trace: Array.from({length: traceCount}, () => ({x, y}))
+        };
+      }
+
+      const config = { traceK: 0.4, timeDelta: 0.01 };
+      let time = 0;
+
+      function loop() {
+        if (!running) return;
+        const n = -Math.cos(time);
+        pulse((1 + n) * .5, (1 + n) * .5);
+        time += ((Math.sin(time)) < 0 ? 9 : (n > 0.8) ? .2 : 1) * config.timeDelta;
+
+        ctx.fillStyle = "rgba(0,0,0,.1)";
+        ctx.fillRect(0, 0, width, height);
+
+        for (let u of e) {
+          const q = targetPoints[u.q];
+          const dx = u.trace[0].x - q[0];
+          const dy = u.trace[0].y - q[1];
+          const length = Math.sqrt(dx*dx + dy*dy);
+
+          if (length < 10) {
+            if (rand() > 0.95) u.q = ~~(rand()*heartPointsCount);
+            else {
+              if (rand() > 0.99) u.D *= -1;
+              u.q = (u.q + u.D + heartPointsCount) % heartPointsCount;
+            }
+          }
+          u.vx += -dx/length * u.speed;
+          u.vy += -dy/length * u.speed;
+          u.trace[0].x += u.vx;
+          u.trace[0].y += u.vy;
+          u.vx *= u.force;
+          u.vy *= u.force;
+
+          for (let k = 0; k < u.trace.length - 1;) {
+            const T = u.trace[k];
+            const N = u.trace[++k];
+            N.x -= config.traceK * (N.x - T.x);
+            N.y -= config.traceK * (N.y - T.y);
+          }
+
+          ctx.fillStyle = u.f;
+          for (let p of u.trace) ctx.fillRect(p.x, p.y, 1, 1);
+        }
+
+        requestAnimationFrame(loop);
+      }
+
+      running = true;
+      loop();
+    }
+
+    // Bấm nút để hiện hiệu ứng canvas, nút biến mất
+    document.getElementById('showHeart').addEventListener('click', () => {
+      const canvasEl = document.getElementById('heartCanvas');
+      canvasEl.style.display = 'block';
+      document.getElementById('showHeart').style.display = 'none';
+      if (!inited) startHeartCanvas();
+      else running = true;
+    });
+  </script>
 </body>
 </html>
